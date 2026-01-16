@@ -8,13 +8,7 @@ use clap::Parser;
 use dotenvy::dotenv;
 use futures::{SinkExt, StreamExt};
 use jacquard_common::types::{
-    aturi::AtUri,
-    cid::Cid,
-    collection::Collection,
-    did::Did,
-    nsid::Nsid,
-    string::{AtprotoStr, Rkey},
-    tid::Tid,
+    cid::Cid, collection::Collection, did::Did, nsid::Nsid, string::Rkey, tid::Tid,
 };
 use lesgif_lexicons::net_dollware::lesgif;
 use serde::Deserialize;
@@ -25,7 +19,7 @@ use tokio_tungstenite::{
     connect_async,
     tungstenite::{Message, client::IntoClientRequest, http::HeaderValue},
 };
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{error, info, instrument, warn};
 use tracing_subscriber::EnvFilter;
 use url::Url;
 
@@ -53,7 +47,7 @@ struct AppState {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum TapIngestPayload<'a> {
     Record {
         id: usize,
@@ -68,7 +62,7 @@ pub enum TapIngestPayload<'a> {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(tag = "action")]
+#[serde(tag = "action", rename_all = "lowercase")]
 pub enum RecordAction<'a> {
     Create {
         record: AtprotoRecord<'a>,
@@ -148,12 +142,21 @@ async fn run_tap_consumer(state: Arc<AppState>, tap_url: &Url, tap_password: &st
 
 async fn consume_tap(state: Arc<AppState>, tap_url: &Url, tap_password: &str) -> Result<()> {
     let mut request = tap_url.as_str().into_client_request()?;
-    request.headers_mut().insert(
+    let headers = request.headers_mut();
+    headers.insert(
         "Authorization",
         HeaderValue::from_str(&format!(
             "Basic {}",
             base64::engine::general_purpose::STANDARD.encode(format!("admin:{}", tap_password))
         ))?,
+    );
+    headers.insert(
+        "User-Agent",
+        HeaderValue::from_static(concat!(
+            env!("CARGO_PKG_NAME"),
+            "/",
+            env!("CARGO_PKG_VERSION")
+        )),
     );
     let (ws_stream, _) = connect_async(request).await?;
     let (mut write, mut read) = ws_stream.split();
@@ -342,11 +345,16 @@ async fn process_event<'a>(state: &AppState, payload: TapIngestPayload<'a>) -> b
                         } else {
                             Some(data.tags.iter().map(|cow| cow.to_string()).collect())
                         };
+                        let languages_array: Option<Vec<String>> = data
+                            .languages
+                            .as_ref()
+                            .filter(|langs| !langs.is_empty())
+                            .map(|langs| langs.iter().map(|cow| cow.to_string()).collect());
                         // https://tangled.org/nonbinary.computer/jacquard/issues/27
                         match query!(
                             "INSERT INTO posts (did, rkey, blob_cid, blob_mime_type, title, blob_alt_text, \
-                             tags, created_at, ingested_at) \
-                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, extract(epoch from now())::BIGINT) \
+                             tags, languages, created_at, ingested_at) \
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, extract(epoch from now())::BIGINT) \
                              ON CONFLICT(did, rkey) DO UPDATE SET \
                              title = excluded.title, \
                              blob_alt_text = excluded.blob_alt_text, \
@@ -359,6 +367,7 @@ async fn process_event<'a>(state: &AppState, payload: TapIngestPayload<'a>) -> b
                             data.title.as_str(),
                             data.gif.alt.as_ref().map(|v| v.as_str()),
                             tags_array.as_deref(),
+                            languages_array.as_deref(),
                             DateTime::parse_from_rfc3339(data.created_at.as_str())
                                 .unwrap()
                                 .timestamp()
@@ -377,53 +386,6 @@ async fn process_event<'a>(state: &AppState, payload: TapIngestPayload<'a>) -> b
                         }
                     }
                     AtprotoRecord::LesgifFeedFavourite(data) => {
-                        // NOTE: Manual string parsing is done because jacquard doesn't seem to ever return
-                        // AtprotoStr::AtUri when parsing the data. Probably an upstream bug?
-                        let (subject_did, _subject_collection, subject_rkey) = match &data.subject {
-                            jacquard_common::types::value::Data::String(AtprotoStr::AtUri(
-                                at_uri,
-                            )) => (
-                                at_uri.authority().to_string(),
-                                at_uri.collection().unwrap().to_string(),
-                                at_uri.rkey().unwrap().0.to_string(),
-                            ),
-                            jacquard_common::types::value::Data::String(AtprotoStr::String(s)) => {
-                                debug!(
-                                    "Using fallback string AtUri parser as Jacquard did not auto-set the AtUri type"
-                                );
-                                match AtUri::new(s.as_ref()) {
-                                    Ok(at_uri) => (
-                                        at_uri.authority().to_string(),
-                                        at_uri
-                                            .collection()
-                                            .ok_or_else(|| {
-                                                warn!("AtUri missing collection");
-                                            })
-                                            .unwrap()
-                                            .to_string(),
-                                        at_uri
-                                            .rkey()
-                                            .ok_or_else(|| {
-                                                warn!("AtUri missing rkey");
-                                            })
-                                            .unwrap()
-                                            .0
-                                            .to_string(),
-                                    ),
-                                    Err(e) => {
-                                        warn!("Failed to parse subject as AtUri: {e}");
-                                        return true;
-                                    }
-                                }
-                            }
-                            _ => {
-                                warn!(
-                                    "Rejected record: subject {:?} is not a valid AtUri",
-                                    data.subject
-                                );
-                                return true;
-                            }
-                        };
                         // https://tangled.org/nonbinary.computer/jacquard/issues/27
                         match query!(
                             "INSERT INTO post_favourites (did, rkey, post_did, \
@@ -432,8 +394,8 @@ async fn process_event<'a>(state: &AppState, payload: TapIngestPayload<'a>) -> b
                              ON CONFLICT (did, rkey) DO NOTHING",
                             record_data.did.as_str(),
                             record_data.rkey.as_str(),
-                            subject_did.as_str(),
-                            subject_rkey.as_str(),
+                            data.subject.authority().as_str(),
+                            data.subject.rkey().unwrap().0.as_str(),
                             DateTime::parse_from_rfc3339(data.created_at.as_str())
                                 .unwrap()
                                 .timestamp()

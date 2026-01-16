@@ -346,8 +346,8 @@ fn lexicon_doc_net_dollware_lesgif_moderation_label() -> ::jacquard_lexicon::lex
                         description: None,
                         required: Some(
                             vec![
-                                ::jacquard_common::smol_str::SmolStr::new_static("value"),
                                 ::jacquard_common::smol_str::SmolStr::new_static("subject"),
+                                ::jacquard_common::smol_str::SmolStr::new_static("value"),
                                 ::jacquard_common::smol_str::SmolStr::new_static("createdAt")
                             ],
                         ),

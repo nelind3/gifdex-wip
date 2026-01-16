@@ -4,20 +4,20 @@
   "defs": {
     "main": {
       "type": "record",
-      "key": "literal:self",
+      "key": "tid",
       "record": {
         "type": "object",
         "properties": {
+          "subject": {
+            "type": "string",
+            "ref": "at-uri"
+          },
           "value": {
             "type": "string",
             "enum": ["takedown", "unlisted", "nsfw"]
           },
           "reason": {
             "type": "string"
-          },
-          "subject": {
-            "type": "ref",
-            "ref": "com.atproto.repo.weakRef"
           },
           "expiresAt": {
             "type": "string",
@@ -28,7 +28,7 @@
             "format": "datetime"
           }
         },
-        "required": ["value", "subject", "createdAt"]
+        "required": ["subject", "value", "createdAt"]
       }
     }
   }

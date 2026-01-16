@@ -197,7 +197,7 @@ fn lexicon_doc_net_dollware_lesgif_feed_post() -> ::jacquard_lexicon::lexicon::L
                 ::jacquard_common::smol_str::SmolStr::new_static("main"),
                 ::jacquard_lexicon::lexicon::LexUserType::Record(::jacquard_lexicon::lexicon::LexRecord {
                     description: None,
-                    key: Some(::jacquard_common::CowStr::new_static("tid:cid")),
+                    key: Some(::jacquard_common::CowStr::new_static("any")),
                     record: ::jacquard_lexicon::lexicon::LexRecordRecord::Object(::jacquard_lexicon::lexicon::LexObject {
                         description: None,
                         required: Some(
@@ -279,7 +279,7 @@ fn lexicon_doc_net_dollware_lesgif_feed_post() -> ::jacquard_lexicon::lexicon::L
                                         min_length: None,
                                         max_length: None,
                                         min_graphemes: None,
-                                        max_graphemes: None,
+                                        max_graphemes: Some(5usize),
                                         r#enum: None,
                                         r#const: None,
                                         known_values: None,
@@ -303,7 +303,7 @@ fn lexicon_doc_net_dollware_lesgif_feed_post() -> ::jacquard_lexicon::lexicon::L
                                         min_length: None,
                                         max_length: None,
                                         min_graphemes: None,
-                                        max_graphemes: None,
+                                        max_graphemes: Some(10usize),
                                         r#enum: None,
                                         r#const: None,
                                         known_values: None,
@@ -399,67 +399,67 @@ pub mod post_state {
     }
     /// State trait tracking which required fields have been set
     pub trait State: sealed::Sealed {
-        type Gif;
-        type CreatedAt;
         type Title;
         type Tags;
+        type Gif;
+        type CreatedAt;
     }
     /// Empty state - all required fields are unset
     pub struct Empty(());
     impl sealed::Sealed for Empty {}
     impl State for Empty {
-        type Gif = Unset;
-        type CreatedAt = Unset;
         type Title = Unset;
         type Tags = Unset;
-    }
-    ///State transition - sets the `gif` field to Set
-    pub struct SetGif<S: State = Empty>(PhantomData<fn() -> S>);
-    impl<S: State> sealed::Sealed for SetGif<S> {}
-    impl<S: State> State for SetGif<S> {
-        type Gif = Set<members::gif>;
-        type CreatedAt = S::CreatedAt;
-        type Title = S::Title;
-        type Tags = S::Tags;
-    }
-    ///State transition - sets the `created_at` field to Set
-    pub struct SetCreatedAt<S: State = Empty>(PhantomData<fn() -> S>);
-    impl<S: State> sealed::Sealed for SetCreatedAt<S> {}
-    impl<S: State> State for SetCreatedAt<S> {
-        type Gif = S::Gif;
-        type CreatedAt = Set<members::created_at>;
-        type Title = S::Title;
-        type Tags = S::Tags;
+        type Gif = Unset;
+        type CreatedAt = Unset;
     }
     ///State transition - sets the `title` field to Set
     pub struct SetTitle<S: State = Empty>(PhantomData<fn() -> S>);
     impl<S: State> sealed::Sealed for SetTitle<S> {}
     impl<S: State> State for SetTitle<S> {
-        type Gif = S::Gif;
-        type CreatedAt = S::CreatedAt;
         type Title = Set<members::title>;
         type Tags = S::Tags;
+        type Gif = S::Gif;
+        type CreatedAt = S::CreatedAt;
     }
     ///State transition - sets the `tags` field to Set
     pub struct SetTags<S: State = Empty>(PhantomData<fn() -> S>);
     impl<S: State> sealed::Sealed for SetTags<S> {}
     impl<S: State> State for SetTags<S> {
-        type Gif = S::Gif;
-        type CreatedAt = S::CreatedAt;
         type Title = S::Title;
         type Tags = Set<members::tags>;
+        type Gif = S::Gif;
+        type CreatedAt = S::CreatedAt;
+    }
+    ///State transition - sets the `gif` field to Set
+    pub struct SetGif<S: State = Empty>(PhantomData<fn() -> S>);
+    impl<S: State> sealed::Sealed for SetGif<S> {}
+    impl<S: State> State for SetGif<S> {
+        type Title = S::Title;
+        type Tags = S::Tags;
+        type Gif = Set<members::gif>;
+        type CreatedAt = S::CreatedAt;
+    }
+    ///State transition - sets the `created_at` field to Set
+    pub struct SetCreatedAt<S: State = Empty>(PhantomData<fn() -> S>);
+    impl<S: State> sealed::Sealed for SetCreatedAt<S> {}
+    impl<S: State> State for SetCreatedAt<S> {
+        type Title = S::Title;
+        type Tags = S::Tags;
+        type Gif = S::Gif;
+        type CreatedAt = Set<members::created_at>;
     }
     /// Marker types for field names
     #[allow(non_camel_case_types)]
     pub mod members {
-        ///Marker type for the `gif` field
-        pub struct gif(());
-        ///Marker type for the `created_at` field
-        pub struct created_at(());
         ///Marker type for the `title` field
         pub struct title(());
         ///Marker type for the `tags` field
         pub struct tags(());
+        ///Marker type for the `gif` field
+        pub struct gif(());
+        ///Marker type for the `created_at` field
+        pub struct created_at(());
     }
 }
 
@@ -612,10 +612,10 @@ where
 impl<'a, S> PostBuilder<'a, S>
 where
     S: post_state::State,
-    S::Gif: post_state::IsSet,
-    S::CreatedAt: post_state::IsSet,
     S::Title: post_state::IsSet,
     S::Tags: post_state::IsSet,
+    S::Gif: post_state::IsSet,
+    S::CreatedAt: post_state::IsSet,
 {
     /// Build the final struct
     pub fn build(self) -> Post<'a> {

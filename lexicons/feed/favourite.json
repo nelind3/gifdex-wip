@@ -9,8 +9,8 @@
         "type": "object",
         "properties": {
           "subject": {
-            "type": "ref",
-            "ref": "com.atproto.repo.weakRef"
+            "type": "string",
+            "format": "at-uri"
           },
           "createdAt": {
             "type": "string",
