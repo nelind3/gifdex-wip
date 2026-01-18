@@ -10,21 +10,31 @@ pub async fn handle_profile_create_event(
     record_data: &RecordEventData<'_>,
     data: &net_gifdex::actor::profile::Profile<'_>,
 ) -> Result<()> {
+    // Ensure the record rkey is a valid exactly 'self'.
     if record_data.rkey.as_str() != "self" {
         warn!(
             "Rejected record: actor profile record is invalid as it does not use the rkey 'self'"
         );
         return Ok(());
     }
+
+    // Validate that the avatar blob CID is valid.
+    if let Some(avatar) = &data.avatar {
+        if !avatar.blob().cid().is_valid() {
+            warn!("Rejected record: invalid blob CID in for avatar");
+            return Ok(());
+        };
+    }
+
     match query!(
         "INSERT INTO accounts (did, display_name, description, pronouns, \
-                             avatar_blob_cid) \
-                             VALUES ($1, $2, $3, $4, $5) \
-                             ON CONFLICT(did) DO UPDATE SET \
-                             display_name = excluded.display_name, \
-                             description = excluded.description, \
-                             pronouns = excluded.pronouns, \
-                             avatar_blob_cid = excluded.avatar_blob_cid",
+         avatar_blob_cid) \
+         VALUES ($1, $2, $3, $4, $5) \
+         ON CONFLICT(did) DO UPDATE SET \
+         display_name = excluded.display_name, \
+         description = excluded.description, \
+         pronouns = excluded.pronouns, \
+         avatar_blob_cid = excluded.avatar_blob_cid",
         record_data.did.as_str(),
         data.display_name.as_deref(),
         data.description.as_deref(),

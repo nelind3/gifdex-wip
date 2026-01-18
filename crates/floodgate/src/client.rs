@@ -204,8 +204,8 @@ pub struct TapClientBuilder {
 }
 
 impl TapClientBuilder {
-    pub fn password<P: Into<String>>(mut self, password: P) -> Self {
-        self.password = Some(password.into());
+    pub fn password<P: Into<String>>(mut self, password: Option<P>) -> Self {
+        self.password = password.map(|p| p.into());
         self
     }
 

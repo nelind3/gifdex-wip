@@ -1,8 +1,8 @@
 use crate::AppState;
 use anyhow::Result;
-use chrono::DateTime;
 use floodgate::api::RecordEventData;
 use gifdex_lexicons::net_gifdex;
+use jacquard_common::types::{cid::Cid, collection::Collection, tid::Tid};
 use sqlx::query;
 use tracing::{error, info};
 
@@ -11,7 +11,50 @@ pub async fn handle_favourite_create_event(
     record_data: &RecordEventData<'_>,
     data: &net_gifdex::feed::favourite::Favourite<'_>,
 ) -> Result<()> {
-    // https://tangled.org/nonbinary.computer/jacquard/issues/27
+    // Ensure the record rkey is a valid TID .
+    if Tid::new(&record_data.rkey).is_err() {
+        tracing::warn!("Rejected record: invalid rkey");
+        return Ok(());
+    }
+    // Ensure the record's referenced subject is a post.
+    let (post_did, post_collection, post_rkey) = match (
+        data.subject.authority(),
+        data.subject.collection(),
+        data.subject.rkey(),
+    ) {
+        (did, Some(collection), Some(rkey)) => {
+            // Ensure post rkey is valid.
+            match rkey.as_ref().split_once(":") {
+                Some((tid, cid)) => {
+                    if Tid::new(tid).is_err() {
+                        tracing::warn!("Rejected record: invalid TID in rkey");
+                        return Ok(());
+                    }
+                    if Cid::str(cid).is_valid() {
+                        tracing::warn!("Rejected record: invalid CID in rkey");
+                        return Ok(());
+                    };
+                }
+                None => {
+                    tracing::warn!("Rejected record: rkey doesn't match tid:cid format");
+                    return Ok(());
+                }
+            };
+            (did, collection, rkey)
+        }
+        _ => {
+            tracing::warn!("Rejected record: invalid subject at-uri (missing collection or rkey)");
+            return Ok(());
+        }
+    };
+    if post_collection.as_str() != net_gifdex::feed::post::Post::NSID {
+        tracing::warn!(
+            "Rejected record: subject at-uri referenced a collection that was not {}",
+            net_gifdex::feed::post::Post::NSID
+        );
+        return Ok(());
+    }
+
     match query!(
         "INSERT INTO post_favourites (did, rkey, post_did, \
          post_rkey, created_at, ingested_at) \
@@ -19,11 +62,9 @@ pub async fn handle_favourite_create_event(
          ON CONFLICT (did, rkey) DO NOTHING",
         record_data.did.as_str(),
         record_data.rkey.as_str(),
-        data.subject.authority().as_str(),
-        data.subject.rkey().unwrap().0.as_str(),
-        DateTime::parse_from_rfc3339(data.created_at.as_str())
-            .unwrap()
-            .timestamp()
+        post_did.as_str(),
+        post_rkey.as_ref(),
+        data.created_at.as_ref().timestamp()
     )
     .execute(state.database.executor())
     .await

@@ -1,1 +1,2 @@
-mod get_blob;
+pub mod avatar;
+pub mod gif;

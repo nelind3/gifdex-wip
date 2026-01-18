@@ -1,0 +1,83 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT * FROM posts WHERE did = $1 AND rkey = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "did",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "rkey",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "tags",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 4,
+        "name": "languages",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 5,
+        "name": "blob_cid",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "blob_mime_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "blob_alt_text",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 9,
+        "name": "edited_at",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "ingested_at",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "c3aa100519d2938c82f5d8be70a875773e1db762beda3f4d54966ead77d241a9"
+}

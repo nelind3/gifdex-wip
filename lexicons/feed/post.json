@@ -59,8 +59,8 @@
         },
         "blob": {
           "type": "blob",
-          "accept": ["image/gif"],
-          "maxSize": 2000000
+          "accept": ["image/gif", "image/webp"],
+          "maxSize": 1000000
         }
       },
       "required": ["blob"]

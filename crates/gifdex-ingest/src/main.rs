@@ -1,33 +1,12 @@
 mod database;
 mod handlers;
 
-use crate::{
-    database::Database,
-    handlers::{
-        actor::{handle_profile_create_event, handle_profile_delete_event},
-        feed::{
-            handle_favourite_create_event, handle_favourite_delete_event, handle_post_create,
-            handle_post_delete,
-        },
-        handle_unknown_event,
-        identity::handle_identity,
-        moderation::{handle_label_create_event, handle_label_delete_event},
-    },
-};
+use crate::{database::Database, handlers::handle_event};
 use anyhow::Result;
 use clap::Parser;
 use dotenvy::dotenv;
-use floodgate::{
-    api::{EventData, RecordAction},
-    client::TapClient,
-};
-use gifdex_lexicons::net_gifdex::{
-    self,
-    actor::profile::Profile,
-    feed::{favourite::Favourite, post::Post},
-    moderation::label::Label,
-};
-use jacquard_common::types::{collection::Collection, did::Did};
+use floodgate::client::TapClient;
+use jacquard_common::types::did::Did;
 use std::{num::NonZero, sync::Arc, time::Duration};
 use tracing_subscriber::EnvFilter;
 use url::Url;
@@ -43,7 +22,7 @@ struct Arguments {
     tap_url: Url,
 
     #[clap(long = "tap-password", env = "LESGIF_INGEST_TAP_PASSWORD")]
-    tap_password: String,
+    tap_password: Option<String>,
 
     #[clap(
         long = "moderation-accounts",
@@ -80,7 +59,7 @@ async fn main() -> Result<()> {
 
     // Setup the tap client and ensure things are healthy.
     let tap_client = TapClient::builder(args.tap_url.clone())
-        .password(&args.tap_password)
+        .password(args.tap_password)
         .build()?;
     let channel = tap_client
         .channel()
@@ -113,123 +92,5 @@ async fn main() -> Result<()> {
             }
         }
         tokio::time::sleep(Duration::from_secs(10)).await;
-    }
-}
-
-#[tracing::instrument(
-    skip(state, data),
-    fields(
-        event_type = match &data {
-            EventData::Identity { .. } => "identity",
-            EventData::Record { .. } => "record",
-            _ => "unknown",
-        },
-        did = match &data {
-            EventData::Identity { identity, .. } => Some(identity.did.as_str()),
-            EventData::Record { record, .. } => Some(record.did.as_str()),
-            _ => None,
-        },
-        handle = match &data {
-            EventData::Identity { identity, .. } => Some(identity.handle.as_str()),
-            _ => None,
-        },
-        status = match &data {
-            EventData::Identity { identity, .. } => Some(identity.status.as_str()),
-            _ => None,
-        },
-        is_active = match &data {
-            EventData::Identity { identity, .. } => Some(identity.is_active),
-            _ => None,
-        },
-        collection = match &data {
-            EventData::Record { record, .. } => Some(record.collection.as_str()),
-            _ => None,
-        },
-        rkey = match &data {
-            EventData::Record { record, .. } => Some(record.rkey.as_str()),
-            _ => None,
-        },
-        live = match &data {
-            EventData::Record { record, .. } => Some(record.live),
-            _ => None,
-        },
-        action = match &data {
-            EventData::Record { record, .. } => Some(match &record.action {
-                RecordAction::Create { .. } => "create",
-                RecordAction::Update { .. } => "update",
-                RecordAction::Delete => "delete",
-            }),
-            _ => None,
-        },
-    )
-)]
-async fn handle_event(state: Arc<AppState>, data: EventData<'static>) -> anyhow::Result<()> {
-    match data {
-        EventData::Identity { identity } => {
-            handle_identity(&state, &identity).await;
-            Ok(())
-        }
-        EventData::Record { record } => {
-            // Check moderation account restriction
-            if record.collection.starts_with("net.gifdex.moderation")
-                && !state.moderation_account_dids.contains(&record.did)
-            {
-                tracing::warn!(
-                    "Rejected record: moderation record from account not marked as an accepted moderation account"
-                );
-                return Ok(()); // Ack anyway
-            }
-
-            match &record.action {
-                RecordAction::Create {
-                    record: payload, ..
-                }
-                | RecordAction::Update {
-                    record: payload, ..
-                } => match record.collection.as_str() {
-                    net_gifdex::feed::post::Post::NSID => {
-                        let json_str = serde_json::to_string(&payload.raw())?;
-                        let post: Post = serde_json::from_str(&json_str)?;
-                        handle_post_create(&state, &record, &post).await
-                    }
-
-                    net_gifdex::feed::favourite::Favourite::NSID => {
-                        let json_str = serde_json::to_string(&payload.raw())?;
-                        let fav: Favourite = serde_json::from_str(&json_str)?;
-                        handle_favourite_create_event(&state, &record, &fav).await
-                    }
-
-                    net_gifdex::actor::profile::Profile::NSID => {
-                        let json_str = serde_json::to_string(&payload.raw())?;
-                        let profile: Profile = serde_json::from_str(&json_str)?;
-                        handle_profile_create_event(&state, &record, &profile).await
-                    }
-
-                    net_gifdex::moderation::label::Label::NSID => {
-                        let json_str = serde_json::to_string(&payload.raw())?;
-                        let label: Label = serde_json::from_str(&json_str)?;
-                        handle_label_create_event(&state, &record, &label).await
-                    }
-                    _ => handle_unknown_event(&state, &record).await,
-                },
-
-                RecordAction::Delete => match record.collection.as_str() {
-                    net_gifdex::feed::post::Post::NSID => handle_post_delete(&state, &record).await,
-                    net_gifdex::feed::favourite::Favourite::NSID => {
-                        handle_favourite_delete_event(&state, &record).await
-                    }
-                    net_gifdex::actor::profile::Profile::NSID => {
-                        handle_profile_delete_event(&state, &record).await
-                    }
-                    net_gifdex::moderation::label::Label::NSID => {
-                        handle_label_delete_event(&state, &record).await
-                    }
-                    _ => handle_unknown_event(&state, &record).await,
-                },
-            }
-        }
-        _ => {
-            panic!("unknown record action");
-        }
     }
 }

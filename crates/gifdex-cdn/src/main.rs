@@ -1,6 +1,7 @@
 mod database;
 mod routes;
 
+use crate::routes::{avatar::get_avatar_handler, gif::get_gif_handler};
 use anyhow::Result;
 use axum::{
     Router,
@@ -12,6 +13,7 @@ use axum::{
 use clap::Parser;
 use database::Database;
 use dotenvy::dotenv;
+use floodgate::{client::TapClient, extern_types::Url};
 use std::{net::SocketAddr, sync::Arc};
 use tokio::{net::TcpListener, signal};
 use tower_http::{
@@ -21,6 +23,9 @@ use tower_http::{
 };
 use tracing::{Level, info};
 use tracing_subscriber::EnvFilter;
+
+const MAX_AVATAR_SIZE: usize = 3 * 1024 * 1024; // 3MB
+const MAX_BLOB_SIZE: usize = 10 * 1024 * 1024; // 10MB
 
 #[derive(Debug, Clone, Parser)]
 #[clap(author, about, version)]
@@ -35,11 +40,18 @@ struct Arguments {
 
     #[arg(long = "database-url", env = "DATABASE_URL")]
     database_url: String,
+
+    #[arg(long = "tap-url", env = "LESGIF_CDN_TAP_URL")]
+    tap_url: Url,
+
+    #[arg(long = "tap-password", env = "LESGIF_CDN_TAP_PASSWORD")]
+    tap_password: Option<String>,
 }
 
-#[derive(Clone)]
 struct AppState {
-    database: Arc<Database>,
+    database: Database,
+    tap_client: TapClient,
+    http_client: reqwest::Client,
 }
 
 #[tokio::main]
@@ -49,12 +61,25 @@ async fn main() -> Result<()> {
         .with_env_filter(EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new("info")))
         .init();
     let args = Arguments::parse();
-    let app_state = AppState {
-        database: Arc::new(Database::new(&args.database_url).await?),
-    };
+    let app_state = Arc::new(AppState {
+        database: Database::new(&args.database_url).await?,
+        tap_client: TapClient::builder(args.tap_url)
+            .password(args.tap_password)
+            .build()?,
+        http_client: reqwest::Client::builder()
+            .https_only(true)
+            .user_agent(concat!(
+                env!("CARGO_PKG_NAME"),
+                "/",
+                env!("CARGO_PKG_VERSION")
+            ))
+            .build()?,
+    });
+
     let router = Router::new()
         .route("/", get(async || "Lesgif CDN"))
-        .route("/{did}/{blob}", get(async || "hi"))
+        .route("/gif/{did}/{rkey}", get(get_gif_handler))
+        .route("/avatar/{did}/{cid}", get(get_avatar_handler))
         .nest(
             "/xrpc",
             Router::new().route("/", get(async || StatusCode::OK)),

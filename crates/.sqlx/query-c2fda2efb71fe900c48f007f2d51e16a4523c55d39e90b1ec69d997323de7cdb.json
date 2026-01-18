@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT avatar_blob_cid FROM accounts WHERE did = $1 AND avatar_blob_cid = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "avatar_blob_cid",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "c2fda2efb71fe900c48f007f2d51e16a4523c55d39e90b1ec69d997323de7cdb"
+}

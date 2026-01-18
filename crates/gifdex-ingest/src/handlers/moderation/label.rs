@@ -1,6 +1,5 @@
 use crate::AppState;
 use anyhow::Result;
-use chrono::DateTime;
 use floodgate::api::RecordEventData;
 use gifdex_lexicons::net_gifdex;
 use sqlx::query;
@@ -31,14 +30,10 @@ pub async fn handle_label_create_event(
         data.value.as_str(),
         data.reason.as_deref(),
         record_data.did.as_str(),
-        data.expires_at.as_ref().map(|d| {
-            DateTime::parse_from_rfc3339(d.as_str())
-                .unwrap()
-                .timestamp()
-        }),
-        DateTime::parse_from_rfc3339(data.created_at.as_str())
-            .unwrap()
-            .timestamp()
+        data.expires_at
+            .as_ref()
+            .map(|expiry| { expiry.as_ref().timestamp() }),
+        data.created_at.as_ref().timestamp()
     )
     .execute(state.database.executor())
     .await
@@ -58,6 +53,10 @@ pub async fn handle_label_delete_event(
     state: &AppState,
     record_data: &RecordEventData<'_>,
 ) -> Result<()> {
+    if !state.moderation_account_dids.contains(&record_data.did) {
+        return Ok(());
+    }
+
     match query!(
         "DELETE FROM labels WHERE rkey = $1",
         record_data.rkey.as_str()

@@ -1,20 +1,22 @@
 use crate::AppState;
+use anyhow::Result;
 use floodgate::api::IdentityEventData;
 use sqlx::query;
 use tracing::{error, info};
 
-pub async fn handle_identity(state: &AppState, identity: &IdentityEventData<'_>) -> bool {
+pub async fn handle_identity(state: &AppState, identity: &IdentityEventData<'_>) -> Result<()> {
     // Completely purge data related to accounts that are deleted or takendown.
+    // Note: this does not delete any labels applied to the account or their content.
     if matches!(identity.status.as_str(), "deleted" | "takendown") {
         if let Err(err) = query!("DELETE FROM accounts WHERE did = $1", identity.did.as_str())
             .execute(state.database.executor())
             .await
         {
             error!("Failed to delete account: {err:?}");
-            return false;
+            return Err(err.into());
         };
         info!("Removed all userdata for account as it was deleted or takendown");
-        return true;
+        return Ok(());
     }
 
     // Update state of account incase of handle/status/is_active updates.
@@ -35,11 +37,11 @@ pub async fn handle_identity(state: &AppState, identity: &IdentityEventData<'_>)
     {
         Ok(_) => {
             info!("Upserted stored account data into database");
-            true
+            Ok(())
         }
         Err(err) => {
             error!("Failed to upsert account data into database: {err:?}");
-            false
+            Err(err.into())
         }
     }
 }
