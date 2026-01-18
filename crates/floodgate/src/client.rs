@@ -16,8 +16,6 @@ use serde::Serialize;
 use std::time::Duration;
 use url::Url;
 
-// TODO: Better error handling.
-
 #[derive(Debug, Clone)]
 #[must_use]
 pub struct TapClient {

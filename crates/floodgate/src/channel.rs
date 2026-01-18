@@ -1,3 +1,4 @@
+use crate::api::{Event, EventData};
 use anyhow::{Context, Result, bail};
 use futures_util::{SinkExt, StreamExt};
 use jacquard_common::IntoStatic;
@@ -13,13 +14,6 @@ use tokio_tungstenite::{
     tungstenite::{Message, client::IntoClientRequest},
 };
 use url::Url;
-
-use crate::api::{Event, EventData};
-
-// TODO: Cleanup structs in here to put them in better places?
-// TODO: Implement graceful shutdown.
-// TODO: Consider blocking tasks when sending acks to ensure they're sent before taking on new work?
-// TODO: Better error handling.
 
 #[derive(Debug)]
 #[must_use]
