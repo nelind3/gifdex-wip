@@ -36,7 +36,7 @@ pub async fn handle_post_create(
         }
     };
 
-    // Loosely-validate the provided blob's mimetype.
+    // Loosely-validate the provided blob's mimetype + size.
     if !matches!(
         data.gif.blob.blob().mime_type.as_str(),
         "image/gif" | "image/webp"
@@ -44,8 +44,12 @@ pub async fn handle_post_create(
         warn!("Rejected record: blob isn't a valid mimetype");
         return Ok(());
     }
+    if data.gif.blob.blob().size == 10 * 1024 * 1024 {
+        warn!("Rejected record: blob is above maximum size");
+        return Ok(());
+    }
 
-    // Extract array data.
+    // Extract tag/lang data.
     let tags_array = (!data.tags.is_empty()).then(|| {
         data.tags
             .iter()

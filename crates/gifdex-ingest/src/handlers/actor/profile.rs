@@ -18,12 +18,21 @@ pub async fn handle_profile_create_event(
         return Ok(());
     }
 
-    // Validate that the avatar blob CID is valid.
+    // Validate that the avatar blob CID is valid,
+    // and that the reported mimetype + size are in bounds.
     if let Some(avatar) = &data.avatar {
         if !avatar.blob().cid().is_valid() {
             warn!("Rejected record: invalid blob CID in for avatar");
             return Ok(());
         };
+        if !matches!(avatar.blob().mime_type.as_str(), "image/png" | "image/jpeg") {
+            warn!("Rejected record: blob isn't a valid mimetype");
+            return Ok(());
+        }
+        if avatar.blob().size == 3 * 1024 * 1024 {
+            warn!("Rejected record: blob is above maximum size");
+            return Ok(());
+        }
     }
 
     match query!(
