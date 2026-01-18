@@ -142,10 +142,10 @@ pub async fn get_gif_handler(
     };
 
     // Strictly validate the blob, computing and comparing its CID hash and validating its mime-type.
-    let computed_cid = match compute_cid(&rkey_cid, &bytes) {
-        Ok(cid) => cid,
-        Err(code) => {
-            warn!("unsupported hash algorithm: 0x{:#x}", code);
+    let computed_cid = match rkey_cid.hash().code() {
+        0x12 => Cid::new_v1(0x55, Code::Sha2_256.digest(&bytes)),
+        _ => {
+            warn!("unsupported hash algorithm: 0x{:x}", rkey_cid.hash().code());
             return (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "Unsupported CID hash algorithm",
@@ -178,11 +178,4 @@ pub async fn get_gif_handler(
         .body(Body::from(bytes))
         .unwrap()
         .into_response()
-}
-
-fn compute_cid(cid: &Cid, data: &[u8]) -> Result<Cid, u64> {
-    match cid.hash().code() {
-        0x12 => Ok(Cid::new_v1(0x55, Code::Sha2_256.digest(data))),
-        code => Err(code),
-    }
 }
