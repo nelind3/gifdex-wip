@@ -99,9 +99,9 @@ pub async fn handle_event(state: Arc<AppState>, data: EventData<'static>) -> any
                         serde_json::from_str(&json_str)?;
                     handle_label_create_event(&state, &record, &label).await
                 }
-                _ => {
+                collection @ _ => {
                     tracing::error!(
-                        "No record create/update handler for record: {record:?} - please ensure tap is sending the correct records."
+                        "No record create/update handler for collection {collection} - please ensure tap is sending the correct records."
                     );
                     bail!("No registered create/update handler for record");
                 }
@@ -118,16 +118,16 @@ pub async fn handle_event(state: Arc<AppState>, data: EventData<'static>) -> any
                 net_gifdex::moderation::label::Label::NSID => {
                     handle_label_delete_event(&state, &record).await
                 }
-                _ => {
+                collection @ _ => {
                     tracing::error!(
-                        "No record delete handler for record: {record:?} - please ensure tap is sending the correct records."
+                        "No record delete handler for collection {collection} - please ensure tap is sending the correct records."
                     );
                     bail!("No registered delete handler for record");
                 }
             },
         },
-        _ => {
-            panic!("unknown event data type");
+        etype @ _ => {
+            panic!("unknown event data type: {etype:?}");
         }
     }
 }

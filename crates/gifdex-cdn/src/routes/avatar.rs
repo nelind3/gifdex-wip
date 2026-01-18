@@ -121,8 +121,8 @@ pub async fn get_avatar_handler(
     // Strictly validate the blob, computing and comparing it's CID hash and best-guessing it's mime-type.
     let computed_cid = match cid.hash().code() {
         0x12 => Cid::new_v1(0x55, Code::Sha2_256.digest(&bytes)),
-        _ => {
-            warn!("unsupported hash algorithm: 0x{:x}", cid.hash().code());
+        hash @ _ => {
+            warn!("unsupported hash algorithm: 0x{hash:x}");
             return (
                 StatusCode::UNPROCESSABLE_ENTITY,
                 "Unsupported CID hash algorithm",
@@ -136,8 +136,8 @@ pub async fn get_avatar_handler(
     }
     let mime_type = match infer::get(&bytes).map(|t| t.mime_type()) {
         Some(m) if matches!(m, "image/png" | "image/jpeg" | "image/webp") => m,
-        _ => {
-            warn!("invalid or unsupported image format");
+        format @ _ => {
+            warn!("invalid or unsupported image format: {format:?}");
             return StatusCode::UNPROCESSABLE_ENTITY.into_response();
         }
     };

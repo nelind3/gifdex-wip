@@ -42,8 +42,8 @@ pub async fn handle_favourite_create_event(
             };
             (did, collection, rkey)
         }
-        _ => {
-            tracing::warn!("Rejected record: invalid subject at-uri (missing collection or rkey)");
+        at_uri @ _ => {
+            tracing::warn!("Rejected record: invalid subject at-uri ({at_uri:?})");
             return Ok(());
         }
     };
