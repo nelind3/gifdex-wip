@@ -1,0 +1,32 @@
+{
+  "lexicon": 1,
+  "id": "net.gifdex.actor.getProfile",
+  "defs": {
+    "main": {
+      "type": "query",
+      "parameters": {
+        "type": "params",
+        "required": ["actor"],
+        "properties": {
+          "actor": {
+            "type": "string",
+            "format": "did"
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "ref",
+          "ref": "net.gifdex.actor.defs#profileView"
+        }
+      },
+      "errors": [
+        {
+          "name": "ProfileNotFound",
+          "description": "The requested profile does not exist or has not been indexed yet."
+        }
+      ]
+    }
+  }
+}

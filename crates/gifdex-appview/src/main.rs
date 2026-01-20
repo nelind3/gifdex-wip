@@ -1,16 +1,30 @@
 mod database;
+mod routes;
 
+use crate::routes::{
+    com_atproto::sync::handle_get_repo_status,
+    net_gifdex::{
+        actor::{handle_get_profile, handle_get_profiles},
+        feed::handle_get_actor_posts,
+    },
+};
 use anyhow::Result;
 use axum::{
     Router,
     extract::Request,
-    http::{HeaderValue, StatusCode, header},
+    http::{HeaderValue, header},
     middleware::{self as axum_middleware, Next},
     routing::get,
 };
 use clap::Parser;
 use database::Database;
 use dotenvy::dotenv;
+use gifdex_lexicons::net_gifdex::actor::{
+    get_profile::GetProfileRequest, get_profiles::GetProfilesRequest,
+};
+use jacquard_api::com_atproto::sync::get_repo_status::GetRepoStatusRequest;
+use jacquard_axum::IntoRouter;
+use jacquard_common::url::Url;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::{net::TcpListener, signal};
 use tower_http::{
@@ -24,16 +38,16 @@ use tracing_subscriber::EnvFilter;
 #[derive(Debug, Clone, Parser)]
 #[clap(author, about, version)]
 struct Arguments {
-    /// Internet socket address that the server should be ran on.
     #[arg(
         long = "address",
-        env = "LESGIF_APPVIEW_ADDRESS",
+        env = "GIFDEX_APPVIEW_ADDRESS",
         default_value = "127.0.0.1:8255"
     )]
     address: SocketAddr,
-
     #[arg(long = "database-url", env = "DATABASE_URL")]
     database_url: String,
+    #[arg(long = "cdn-url", env = "GIFDEX_CDN_URL")]
+    cdn_url: Url,
 }
 
 #[derive(Clone)]
@@ -52,11 +66,11 @@ async fn main() -> Result<()> {
         database: Arc::new(Database::new(&args.database_url).await?),
     };
     let router = Router::new()
-        .route("/", get(async || "Lesgif AppView"))
-        .nest(
-            "/xrpc",
-            Router::new().route("/", get(async || StatusCode::OK)),
-        )
+        .route("/", get(async || "Gifdex AppView"))
+        .merge(GetProfileRequest::into_router(handle_get_profile))
+        .merge(GetProfilesRequest::into_router(handle_get_profiles))
+        .merge(GetRepoStatusRequest::into_router(handle_get_repo_status))
+        .merge(GetActorPostsRequest::into_router(handle_get_actor_posts))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(trace::DefaultMakeSpan::new().level(Level::INFO))

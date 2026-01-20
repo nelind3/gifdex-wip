@@ -1,0 +1,40 @@
+{
+  "lexicon": 1,
+  "id": "net.gifdex.labeler.label",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "The content or account being labeled"
+          },
+          "rule": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "The rkey of the rule being applied (from net.gifdex.labeler.rule)"
+          },
+          "reason": {
+            "type": "string",
+            "maxGraphemes": 200,
+            "description": "Optional context for why this label was applied"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "Optional expiration time for this label"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        },
+        "required": ["subject", "rule", "createdAt"]
+      }
+    }
+  }
+}

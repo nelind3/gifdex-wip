@@ -1,0 +1,98 @@
+{
+  "lexicon": 1,
+  "id": "net.gifdex.actor.defs",
+  "defs": {
+    "profileViewMinimal": {
+      "type": "object",
+      "description": "A minimal representation of an actor's profile, ideal for search results.",
+      "required": ["did"],
+      "properties": {
+        "did": {
+          "type": "string",
+          "format": "did"
+        },
+        "handle": {
+          "type": "string",
+          "format": "handle"
+        },
+        "displayName": {
+          "type": "string",
+          "maxGraphemes": 64
+        },
+        "avatar": {
+          "type": "string",
+          "format": "uri"
+        },
+        "viewer": {
+          "type": "ref",
+          "ref": "#viewerState"
+        }
+      }
+    },
+    "profileViewBasic": {
+      "type": "object",
+      "description": "A basic representation of an actor's profile, ideal for displaying a post's creator.",
+      "required": ["did"],
+      "properties": {
+        "did": {
+          "type": "string",
+          "format": "did"
+        },
+        "handle": {
+          "type": "string",
+          "format": "handle"
+        },
+        "displayName": {
+          "type": "string",
+          "maxGraphemes": 64
+        },
+        "avatar": {
+          "type": "string",
+          "format": "uri"
+        },
+        "viewer": {
+          "type": "ref",
+          "ref": "#viewerState"
+        }
+      }
+    },
+    "profileView": {
+      "type": "object",
+      "description": "A full representation of an actor's profile, ideal for profile pages.",
+      "required": ["did", "postCount"],
+      "properties": {
+        "did": {
+          "type": "string",
+          "format": "did"
+        },
+        "handle": {
+          "type": "string",
+          "format": "handle"
+        },
+        "displayName": {
+          "type": "string",
+          "maxGraphemes": 64
+        },
+        "pronouns": {
+          "type": "string",
+          "maxGraphemes": 20
+        },
+        "avatar": {
+          "type": "string",
+          "format": "uri"
+        },
+        "postCount": {
+          "type": "integer"
+        },
+        "viewer": {
+          "type": "ref",
+          "ref": "#viewerState"
+        }
+      }
+    },
+    "viewerState": {
+      "type": "object",
+      "properties": {}
+    }
+  }
+}

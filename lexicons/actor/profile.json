@@ -7,14 +7,11 @@
       "key": "literal:self",
       "record": {
         "type": "object",
+        "required": ["createdAt"],
         "properties": {
           "displayName": {
             "type": "string",
             "maxGraphemes": 64
-          },
-          "description": {
-            "type": "string",
-            "maxGraphemes": 240
           },
           "pronouns": {
             "type": "string",
@@ -29,8 +26,7 @@
             "type": "string",
             "format": "datetime"
           }
-        },
-        "required": ["createdAt"]
+        }
       }
     }
   }

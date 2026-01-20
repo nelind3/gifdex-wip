@@ -1,0 +1,160 @@
+{
+  "lexicon": 1,
+  "id": "net.gifdex.feed.defs",
+  "defs": {
+    "postView": {
+      "type": "object",
+      "description": "Detailed view of a post, including author information and engagement metrics.",
+      "required": [
+        "uri",
+        "author",
+        "title",
+        "media",
+        "favouriteCount",
+        "createdAt",
+        "indexedAt"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "author": {
+          "type": "ref",
+          "ref": "net.gifdex.actor.defs#profileViewBasic"
+        },
+        "title": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "media": {
+          "type": "object",
+          "required": ["url", "mimeType"],
+          "properties": {
+            "url": {
+              "type": "string",
+              "format": "uri"
+            },
+            "alt": {
+              "type": "string"
+            },
+            "mimeType": {
+              "type": "string"
+            }
+          }
+        },
+        "favouriteCount": {
+          "type": "integer"
+        },
+        "viewer": {
+          "type": "ref",
+          "ref": "#viewerState"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "editedAt": {
+          "type": "integer"
+        },
+        "indexedAt": {
+          "type": "integer"
+        }
+      }
+    },
+    "postFeedView": {
+      "type": "object",
+      "description": "Feed-optimized view of a post with all metadata needed for display in timelines.",
+      "required": [
+        "uri",
+        "author",
+        "title",
+        "media",
+        "favouriteCount",
+        "createdAt",
+        "indexedAt"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "at-uri"
+        },
+        "author": {
+          "type": "ref",
+          "ref": "net.gifdex.actor.defs#profileViewBasic"
+        },
+        "title": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "media": {
+          "type": "object",
+          "description": "GIF content and metadata.",
+          "required": ["url", "mimeType"],
+          "properties": {
+            "url": {
+              "type": "string",
+              "format": "uri"
+            },
+            "alt": {
+              "type": "string"
+            },
+            "mimeType": {
+              "type": "string"
+            }
+          }
+        },
+        "favouriteCount": {
+          "type": "integer"
+        },
+        "viewer": {
+          "type": "ref",
+          "ref": "#viewerState"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "editedAt": {
+          "type": "string",
+          "format": "datetime"
+        },
+        "indexedAt": {
+          "type": "string",
+          "format": "datetime"
+        }
+      }
+    },
+    "viewerState": {
+      "type": "object",
+      "description": "Metadata about the requesting account's relationship with the subject content. Only has meaningful content for authed requests.",
+      "properties": {
+        "liked": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

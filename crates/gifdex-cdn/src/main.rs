@@ -78,7 +78,7 @@ async fn main() -> Result<()> {
 
     let router = Router::new()
         .route("/", get(async || "Lesgif CDN"))
-        .route("/gif/{did}/{rkey}", get(get_gif_handler))
+        .route("/media/{did}/{rkey}", get(get_gif_handler))
         .route("/avatar/{did}/{cid}", get(get_avatar_handler))
         .nest(
             "/xrpc",

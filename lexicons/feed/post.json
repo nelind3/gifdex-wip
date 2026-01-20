@@ -26,20 +26,27 @@
             "type": "array",
             "items": {
               "maxGraphemes": 5,
-              "type": "string"
+              "type": "string",
+              "format": "language"
             },
             "maxLength": 2,
-            "description": "Indicates human language of post content, including title and the gif itself."
+            "description": "Indicates human language of post content, including title and the media itself."
           },
-          "gif": {
+          "media": {
             "type": "ref",
-            "ref": "#gif"
+            "ref": "#media"
           },
           "labels": {
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["unlisted", "nsfw"]
+              "enum": [
+                "unlisted",
+                "nsfw",
+                "content-warning",
+                "gore",
+                "flashing-lights"
+              ]
             }
           },
           "createdAt": {
@@ -48,10 +55,10 @@
             "description": "Client-declared timestamp when this post was originally created."
           }
         },
-        "required": ["title", "tags", "gif", "createdAt"]
+        "required": ["title", "tags", "media", "createdAt"]
       }
     },
-    "gif": {
+    "media": {
       "type": "object",
       "properties": {
         "alt": {
@@ -59,11 +66,27 @@
         },
         "blob": {
           "type": "blob",
-          "accept": ["image/gif", "image/webp"],
+          "accept": ["image/webp"],
           "maxSize": 1000000
         }
       },
       "required": ["blob"]
+    },
+    "selfLabel": {
+      "type": "object",
+      "properties": {
+        "rule": {
+          "type": "string",
+          "format": "at-uri",
+          "description": "The rkey of the rule being applied (from net.gifdex.labeler.rule). Rule must enable selfLabel."
+        },
+        "reason": {
+          "type": "string",
+          "maxGraphemes": 200,
+          "description": "Optional explanation for this label"
+        }
+      },
+      "required": ["rule"]
     }
   }
 }

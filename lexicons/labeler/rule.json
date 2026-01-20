@@ -1,0 +1,57 @@
+{
+  "lexicon": 1,
+  "id": "net.gifdex.labeler.rule",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": ["name", "description", "behaviour", "createdAt"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxGraphemes": 20
+          },
+          "description": {
+            "type": "string",
+            "maxGraphemes": 200
+          },
+          "selfLabel": {
+            "type": "boolean"
+          },
+          "behaviour": {
+            "type": "union",
+            "refs": ["#annotate", "#moderate"]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    },
+    "annotate": {
+      "type": "object",
+      "required": ["defaultSetting", "adultContent"],
+      "properties": {
+        "defaultSetting": {
+          "type": "string",
+          "enum": ["ignore", "inform", "warn", "hide"]
+        },
+        "adultContent": {
+          "type": "boolean"
+        }
+      }
+    },
+    "moderate": {
+      "type": "object",
+      "required": ["takedown"],
+      "properties": {
+        "takedown": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
