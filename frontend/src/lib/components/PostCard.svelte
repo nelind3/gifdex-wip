@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import Button from '$lib/components/Button.svelte';
+	import Button from '$lib/components/base/button/Button.svelte';
+	import Shimmer from '$lib/components/base/Shimmer.svelte';
 	import type { PostFeedView } from '$lib/lexicons/types/net/gifdex/feed/defs';
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { ComAtprotoRepoCreateRecord, ComAtprotoRepoDeleteRecord } from '@atcute/atproto';
@@ -69,7 +70,7 @@
 								subject: `at://${did}/net.gifdex.feed.post/${rkey}`,
 								createdAt: new Date().toISOString()
 							},
-							repo: authStore.session?.info.sub as ActorIdentifier
+							repo: authStore.activeUser.did as ActorIdentifier
 						}
 					});
 					if (response.ok) {
@@ -83,7 +84,7 @@
 						input: {
 							collection: 'net.gifdex.feed.favourite',
 							rkey: post.viewer.favourite!,
-							repo: authStore.session!.info.sub
+							repo: authStore.activeUser.did
 						}
 					});
 					if (response.ok) {
@@ -104,7 +105,7 @@
 	{#if post.media}
 		<div class="media-container" style="padding-bottom: {aspectRatio}%;">
 			{#if !imageLoaded}
-				<div class="skeleton-shimmer"></div>
+				<Shimmer class="media-shimmer" radius={0} />
 			{/if}
 			<img
 				src={post.media.thumbnailUrl}
@@ -212,29 +213,10 @@
 		overflow: hidden;
 	}
 
-	.skeleton-shimmer {
+	.media-container :global(.media-shimmer) {
 		position: absolute;
 		top: 0;
 		left: 0;
-		width: 100%;
-		height: 100%;
-		background: linear-gradient(
-			90deg,
-			var(--ctp-surface0) 0%,
-			var(--ctp-surface1) 50%,
-			var(--ctp-surface0) 100%
-		);
-		background-size: 200% 100%;
-		animation: shimmer 1.5s infinite;
-	}
-
-	@keyframes shimmer {
-		0% {
-			background-position: 200% 0;
-		}
-		100% {
-			background-position: -200% 0;
-		}
 	}
 
 	.post-content {

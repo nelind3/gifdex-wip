@@ -1,6 +1,6 @@
 <script lang="ts">
 	import favicon from '$lib/assets/favicon.svg';
-	import AuthenticationDialog from '$lib/components/dialog/AuthenticationDialog.svelte';
+	import AuthenticationDialog from '$lib/components/auth/AuthenticationDialog.svelte';
 	import SiteFooter from '$lib/components/site/SiteFooter.svelte';
 	import SiteHeader from '$lib/components/site/SiteHeader.svelte';
 	import '$lib/styles/reset.css';

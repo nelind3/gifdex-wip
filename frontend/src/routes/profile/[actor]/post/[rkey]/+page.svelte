@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Button from '$lib/components/Button.svelte';
+	import Button from '$lib/components/base/button/Button.svelte';
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { ComAtprotoRepoCreateRecord } from '@atcute/atproto';
 	import { Download, Share2, Star } from 'lucide-svelte';
@@ -38,7 +38,7 @@
 						subject: post.uri,
 						createdAt: new Date().toISOString()
 					},
-					repo: authStore.session!.info.sub
+					repo: authStore.activeUser.did
 				}
 			});
 			if (response.ok) {

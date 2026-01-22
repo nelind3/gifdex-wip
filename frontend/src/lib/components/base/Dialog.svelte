@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { XIcon } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
-	import Button from '../Button.svelte';
+	import Button from './button/Button.svelte';
 
 	interface Props {
 		open?: boolean;

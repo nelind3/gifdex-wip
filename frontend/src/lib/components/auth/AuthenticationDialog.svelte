@@ -1,7 +1,7 @@
 <script>
 	import { authStore } from '$lib/stores/auth.svelte';
-	import Button from '../Button.svelte';
-	import Dialog from './Dialog.svelte';
+	import Button from '../base/button/Button.svelte';
+	import Dialog from '../base/Dialog.svelte';
 
 	let handle = $state('');
 </script>

@@ -3,7 +3,7 @@ import { NetGifdexActorGetProfile } from '$lib/lexicons';
 import type { ProfileView } from '$lib/lexicons/types/net/gifdex/actor/defs';
 import { Client, ok } from '@atcute/client';
 import type { Did } from '@atcute/lexicons';
-import type { OAuthUserAgent, Session } from '@atcute/oauth-browser-client';
+import { OAuthUserAgent, type Session } from '@atcute/oauth-browser-client';
 
 const APPVIEW_SERVICE_ID = '#gifdex_appview';
 
@@ -14,16 +14,16 @@ export class User {
 	isLoadingProfile = $state(false);
 	profileError = $state<string | null>(null);
 
-	private session: Session;
-	private agent: OAuthUserAgent;
+	private _session: Session;
+	private _agent: OAuthUserAgent;
 	readonly client: Client;
 
-	constructor(did: Did, session: Session, agent: OAuthUserAgent) {
+	constructor(did: Did, session: Session) {
 		this.did = did;
-		this.session = session;
-		this.agent = agent;
+		this._session = session;
+		this._agent = new OAuthUserAgent(session);
 		this.client = new Client({
-			handler: agent,
+			handler: this._agent,
 			proxy: {
 				did: PUBLIC_APPVIEW_DID as Did,
 				serviceId: APPVIEW_SERVICE_ID
@@ -57,11 +57,23 @@ export class User {
 		}
 	}
 
-	getAgent(): OAuthUserAgent {
-		return this.agent;
+	get session(): Session {
+		return this._session;
 	}
 
-	getSession(): Session {
-		return this.session;
+	get agent(): OAuthUserAgent {
+		return this._agent;
+	}
+
+	get displayName(): string {
+		return this.profile?.displayName || this.profile?.handle || this.did;
+	}
+
+	get handle(): string | undefined {
+		return this.profile?.handle;
+	}
+
+	get avatar(): string | undefined {
+		return this.profile?.avatar;
 	}
 }

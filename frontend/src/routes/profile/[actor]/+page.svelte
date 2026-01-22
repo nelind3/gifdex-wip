@@ -1,5 +1,5 @@
 <script lang="ts">
-	import MasonryGrid from '$lib/components/MasonryGrid.svelte';
+	import MasonryGrid from '$lib/components/layouts/MasonryGrid.svelte';
 	import PostCard from '$lib/components/PostCard.svelte';
 	import ProfileCard from '$lib/components/ProfileCard.svelte';
 	import { NetGifdexFeedGetPostsByActor } from '$lib/lexicons';
@@ -21,7 +21,7 @@
 	let sentinel: HTMLElement | undefined = $state();
 
 	$effect(() => {
-		authStore.session;
+		authStore.activeUser;
 		loadInitialPosts();
 	});
 

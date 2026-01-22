@@ -1,7 +1,6 @@
 // src/lib/auth.svelte.ts
 import { invalidateAll } from '$app/navigation';
 import {
-	PUBLIC_APPVIEW_DID,
 	PUBLIC_APPVIEW_URL,
 	PUBLIC_OAUTH_CLIENT_ID,
 	PUBLIC_OAUTH_REDIRECT_URI,
@@ -25,13 +24,13 @@ import {
 	deleteStoredSession,
 	finalizeAuthorization,
 	getSession,
-	OAuthUserAgent,
 	type Session
 } from '@atcute/oauth-browser-client';
+import { User } from './user.svelte';
 
-const LAST_SIGNED_IN_LOCALKEY = 'lastSignedIn';
+const STORED_DIDS_KEY = 'gifdex:storedDids';
+const ACTIVE_USER_KEY = 'gifdex:activeUser';
 const OAUTH_REDIRECT_KEY = 'oauth-session-storage';
-const APPVIEW_SERVICE_ID = '#gifdex_appview';
 
 enum OAuthAuthenticationType {
 	Account,
@@ -39,10 +38,19 @@ enum OAuthAuthenticationType {
 }
 
 class AuthStore {
-	client = $state<Client>(this.createUnauthenticatedClient());
-	oauthAgent = $state<OAuthUserAgent | null>(null);
-	session = $state<Session | null>(null);
+	users = $state<Map<Did, User>>(new Map());
+	allUsers = $derived([...this.users.values()]);
+	activeUserDid = $state<Did | null>(null);
 	promptSignIn = $state(false);
+
+	private _unauthenticatedClient: Client = new Client({
+		handler: simpleFetchHandler({
+			service: PUBLIC_APPVIEW_URL
+		})
+	});
+
+	activeUser = $derived(this.activeUserDid ? (this.users.get(this.activeUserDid) ?? null) : null);
+	client = $derived(this.activeUser?.client ?? this._unauthenticatedClient);
 
 	/**
 	 * Initialises required dependencies for performing OAuth operations.
@@ -77,24 +85,59 @@ class AuthStore {
 	/**
 	 * Initialise the auth store.
 	 *
-	 * This method will setup OAuth ahead of time and make an attempt to restore the last
-	 * in-use session if available, falling back to an unauthenticated session otherwise.
+	 * This method will setup OAuth ahead of time and make an attempt to restore all
+	 * stored sessions, falling back to an unauthenticated state otherwise.
 	 */
 	async initialize() {
 		this.setupOAuth();
 		try {
-			const restoredSession = await this.restoreSession();
-			if (restoredSession) {
-				const agent = new OAuthUserAgent(restoredSession);
-				this.session = restoredSession;
-				this.oauthAgent = agent;
-				this.client = this.createAuthenticatedClient(agent);
-			} else {
-				this.client = this.createUnauthenticatedClient();
-			}
+			await this.restoreAllSessions();
 		} catch (err) {
-			console.error('Failed to restore session:', err);
-			this.client = this.createUnauthenticatedClient();
+			console.error('Failed to restore sessions: ', err);
+		}
+	}
+
+	/**
+	 * Restore all stored sessions.
+	 */
+	private async restoreAllSessions(): Promise<void> {
+		const storedDids = this.getStoredDids();
+		if (storedDids.length === 0) return;
+
+		const restoredUsers: User[] = [];
+		const failedDids: Did[] = [];
+
+		for (const did of storedDids) {
+			try {
+				const session = await getSession(did, { allowStale: true });
+				const user = new User(did, session);
+				this.users.set(did, user);
+				restoredUsers.push(user);
+			} catch (err) {
+				console.error(`Failed to restore session for ${did}:`, err);
+				failedDids.push(did);
+			}
+		}
+
+		// Reassign to trigger reactivity
+		this.users = new Map(this.users);
+
+		// Clean up failed DIDs from storage
+		for (const did of failedDids) {
+			this.removeStoredDid(did);
+			deleteStoredSession(did);
+		}
+
+		// Set active user
+		if (restoredUsers.length > 0) {
+			const savedActiveUser = localStorage.getItem(ACTIVE_USER_KEY) as Did | null;
+			if (savedActiveUser && this.users.has(savedActiveUser)) {
+				this.activeUserDid = savedActiveUser;
+			} else {
+				// Fall back to first available user
+				this.activeUserDid = restoredUsers[0].did;
+				localStorage.setItem(ACTIVE_USER_KEY, this.activeUserDid);
+			}
 		}
 	}
 
@@ -114,12 +157,17 @@ class AuthStore {
 		try {
 			const auth = await finalizeAuthorization(params);
 			const did = auth.session.info.sub;
-			localStorage.setItem(LAST_SIGNED_IN_LOCALKEY, did);
 
-			const agent = new OAuthUserAgent(auth.session);
-			this.session = auth.session;
-			this.oauthAgent = agent;
-			this.client = this.createAuthenticatedClient(agent);
+			// Add to stored DIDs and create user
+			this.addStoredDid(did);
+			const user = new User(did, auth.session);
+			this.users.set(did, user);
+			this.users = new Map(this.users); // Reassign to trigger reactivity
+
+			// Set as active user
+			this.activeUserDid = did;
+			localStorage.setItem(ACTIVE_USER_KEY, did);
+
 			const redirect = sessionStorage.getItem(OAUTH_REDIRECT_KEY);
 			sessionStorage.removeItem(OAUTH_REDIRECT_KEY);
 			return { success: true, redirect };
@@ -130,31 +178,84 @@ class AuthStore {
 	}
 
 	/**
-	 * Restore the last session that was used.
+	 * Whether the auth store is currently authenticated with an active user.
 	 */
-	private async restoreSession(): Promise<Session | null> {
-		const lastSignedIn = localStorage.getItem(LAST_SIGNED_IN_LOCALKEY);
-		if (!lastSignedIn) {
-			return null;
-		}
-
-		try {
-			return await getSession(lastSignedIn as Did, { allowStale: true });
-		} catch (err) {
-			deleteStoredSession(lastSignedIn as Did);
-			localStorage.removeItem(LAST_SIGNED_IN_LOCALKEY);
-			throw err;
-		}
+	isAuthenticated(): this is this & {
+		activeUser: User;
+		activeUserDid: Did;
+		session: Session;
+	} {
+		return this.activeUser != null;
 	}
 
 	/**
-	 * Whether the auth store is currently authenticated with a valid session or not.
+	 * Switch to a different signed-in user.
+	 *
+	 * @param did The DID of the user to switch to.
 	 */
-	isAuthenticated(): this is this & {
-		session: Session;
-		oauthAgent: OAuthUserAgent;
-	} {
-		return this.session != null && this.oauthAgent != null;
+	async switchUser(did: Did): Promise<boolean> {
+		if (!this.users.has(did)) {
+			console.error(`Cannot switch to unknown user: ${did}`);
+			return false;
+		}
+
+		this.activeUserDid = did;
+		localStorage.setItem(ACTIVE_USER_KEY, did);
+		await invalidateAll();
+		return true;
+	}
+
+	/**
+	 * Sign out a specific user by DID.
+	 *
+	 * @param did The DID of the user to sign out.
+	 */
+	async signOutUser(did: Did): Promise<void> {
+		const user = this.users.get(did);
+		if (!user) {
+			console.warn(`Attempted to sign out unknown user: ${did}`);
+			return;
+		}
+
+		await user.agent.signOut();
+		deleteStoredSession(did);
+		this.users.delete(did);
+		this.users = new Map(this.users); // Reassign to trigger reactivity
+		this.removeStoredDid(did);
+
+		// If we signed out the active user, switch to another or clear
+		if (this.activeUserDid === did) {
+			const remainingUsers = [...this.users.keys()];
+			if (remainingUsers.length > 0) {
+				this.activeUserDid = remainingUsers[0];
+				localStorage.setItem(ACTIVE_USER_KEY, this.activeUserDid);
+			} else {
+				this.activeUserDid = null;
+				localStorage.removeItem(ACTIVE_USER_KEY);
+			}
+		}
+
+		await invalidateAll();
+	}
+
+	/**
+	 * Sign out all users and clear all stored sessions.
+	 */
+	async signOutAll(): Promise<void> {
+		for (const user of this.users.values()) {
+			await user.agent.signOut();
+			deleteStoredSession(user.did);
+		}
+
+		this.users.clear();
+		this.users = new Map(this.users); // Reassign to trigger reactivity
+		this.activeUserDid = null;
+		localStorage.removeItem(STORED_DIDS_KEY);
+		localStorage.removeItem(ACTIVE_USER_KEY);
+		sessionStorage.removeItem(OAUTH_REDIRECT_KEY);
+
+		await invalidateAll();
+		window.location.reload();
 	}
 
 	/**
@@ -185,58 +286,13 @@ class AuthStore {
 						: { type: 'pds', serviceUrl: cleanIdentifier },
 				scope: PUBLIC_OAUTH_SCOPE
 			});
-			sessionStorage.setItem(OAUTH_REDIRECT_KEY, window.location.toString()); // For automatic redirection back to the current page.
+			sessionStorage.setItem(OAUTH_REDIRECT_KEY, window.location.toString());
 			window.location.assign(authUrl);
 			return true;
 		} catch (err) {
 			console.error('Failed to create authorization URL:', err);
 			return false;
 		}
-	}
-
-	/**
-	 * Revoke the current session token and refresh the current page.
-	 */
-	async oauthSignOut(): Promise<void> {
-		if (this.session && this.oauthAgent) {
-			await this.oauthAgent.signOut();
-			deleteStoredSession(this.session.info.sub as Did);
-		} else {
-			console.warn('Attempted to sign out without an active session');
-			return;
-		}
-		localStorage.removeItem(LAST_SIGNED_IN_LOCALKEY);
-		this.session = null;
-		this.oauthAgent = null;
-		this.client = this.createUnauthenticatedClient();
-		sessionStorage.removeItem(OAUTH_REDIRECT_KEY);
-		await invalidateAll();
-		window.location.reload();
-	}
-
-	/**
-	 * Create a new authenticated client using the provided OAuth agent and configure it
-	 * to proxy through the default AppView service.
-	 */
-	private createAuthenticatedClient(agent: OAuthUserAgent): Client {
-		return new Client({
-			handler: agent,
-			proxy: {
-				did: PUBLIC_APPVIEW_DID as Did,
-				serviceId: APPVIEW_SERVICE_ID
-			}
-		});
-	}
-
-	/**
-	 * Create a new unauthenticated client using the default AppView URL.
-	 */
-	private createUnauthenticatedClient(): Client {
-		return new Client({
-			handler: simpleFetchHandler({
-				service: PUBLIC_APPVIEW_URL
-			})
-		});
 	}
 
 	/**
@@ -265,7 +321,6 @@ class AuthStore {
 		try {
 			const url = new URL(cleanIdentifier);
 			if (url.protocol === 'https:' || url.protocol === 'http:') {
-				// Fixed: was 'http://'
 				return OAuthAuthenticationType.PDS;
 			}
 		} catch {
@@ -273,6 +328,33 @@ class AuthStore {
 		}
 
 		return null;
+	}
+
+	private getStoredDids(): Did[] {
+		try {
+			const stored = localStorage.getItem(STORED_DIDS_KEY);
+			if (!stored) return [];
+			return JSON.parse(stored) as Did[];
+		} catch {
+			return [];
+		}
+	}
+
+	private addStoredDid(did: Did): void {
+		const dids = this.getStoredDids();
+		if (!dids.includes(did)) {
+			dids.push(did);
+			localStorage.setItem(STORED_DIDS_KEY, JSON.stringify(dids));
+		}
+	}
+
+	private removeStoredDid(did: Did): void {
+		const dids = this.getStoredDids().filter((d) => d !== did);
+		if (dids.length > 0) {
+			localStorage.setItem(STORED_DIDS_KEY, JSON.stringify(dids));
+		} else {
+			localStorage.removeItem(STORED_DIDS_KEY);
+		}
 	}
 }
 
